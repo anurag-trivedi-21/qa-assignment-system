@@ -9,6 +9,8 @@ use Filament\Panel;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -35,5 +37,22 @@ class User extends Authenticatable implements FilamentUser
     public function canAccessPanel(Panel $panel): bool
     {
         return $this->is_enabled;
+    }
+
+    public function testerShifts(): HasMany
+    {
+        return $this->hasMany(TesterShift::class);
+    }
+
+    public function latestShift(): HasOne
+    {
+        return $this->hasOne(TesterShift::class)->latestOfMany('clocked_in_at');
+    }
+
+    public function isClockedIn(): bool
+    {
+        return $this->testerShifts()
+            ->whereNull('clocked_out_at')
+            ->exists();
     }
 }
