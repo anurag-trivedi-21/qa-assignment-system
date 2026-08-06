@@ -13,7 +13,7 @@ class PendingTest extends Model
     use HasFactory;
 
     protected $fillable = [
-        'test_subject_id', 'tester_id', 'reason', 'impact_count', 'claimed_at',
+        'test_subject_id', 'tester_id', 'reason', 'impact_count', 'claimed_at', 'is_auto_assigned',
     ];
 
     protected function casts(): array
