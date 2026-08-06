@@ -43,6 +43,9 @@ WORKDIR /var/www/html
 # Copy existing application directory contents
 COPY . .
 
+# Avoid "dubious ownership" git errors when the repo was copied in as root
+RUN git config --global --add safe.directory /var/www/html
+
 # Setup Laravel .env file first
 RUN php -r "file_exists('.env') || copy('.env.example', '.env');"
 

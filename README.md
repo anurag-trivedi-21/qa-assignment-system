@@ -20,6 +20,21 @@ No npm install or asset build is required for this exercise: Filament's admin as
 - Docker Desktop (or another Docker Engine with Docker Compose)
 - PHP 8.5+ and Composer 2, used once to install the PHP dependencies before Sail is available
 
+## Quick start
+
+If you want the simplest possible experience for a fresh checkout, run:
+
+```sh
+./run.sh
+```
+
+That script will:
+
+- create a local `.env` file if needed
+- install PHP dependencies with Composer
+- start the Docker containers
+- generate the app key and seed the database
+
 ## Setup
 
 ```sh
