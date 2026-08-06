@@ -18,7 +18,15 @@ class PendingTestForm
                     ->required()
                     ->searchable(),
                 Select::make('tester_id')
-                    ->relationship('tester', 'username')
+                    ->relationship(
+                        'tester',
+                        'username',
+                        modifyQueryUsing: fn ($query) => $query->whereHas(
+                            'testerShifts',
+                            fn ($shiftQuery) => $shiftQuery->whereNull('clocked_out_at'),
+                        ),
+                    )
+                    ->helperText('Only clocked-in testers can be selected.')
                     ->searchable(),
                 TextInput::make('reason')
                     ->required(),

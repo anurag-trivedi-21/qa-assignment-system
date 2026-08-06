@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\PendingTests\Tables;
 
+use App\Exceptions\TesterNotClockedInException;
 use App\Models\PendingTest;
 use App\Models\User;
 use App\Services\TestSubmissionService;
@@ -11,6 +12,7 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
@@ -65,9 +67,11 @@ class PendingTestsTable
                             ->options(fn (): array => User::query()
                                 ->where('is_tester', true)
                                 ->where('is_enabled', true)
+                                ->whereHas('testerShifts', fn ($query) => $query->whereNull('clocked_out_at'))
                                 ->orderBy('username')
                                 ->pluck('username', 'id')
                                 ->all())
+                            ->helperText('Only clocked-in testers can be selected.')
                             ->default(fn (PendingTest $record): ?int => $record->tester_id)
                             ->searchable()
                             ->required(),
@@ -81,12 +85,20 @@ class PendingTestsTable
                             ->columnSpanFull(),
                     ])
                     ->action(function (PendingTest $record, array $data): void {
-                        app(TestSubmissionService::class)->submit(
-                            $record,
-                            User::query()->findOrFail($data['tester_id']),
-                            $data['result'],
-                            $data['notes'] ?? null,
-                        );
+                        try {
+                            app(TestSubmissionService::class)->submit(
+                                $record,
+                                User::query()->findOrFail($data['tester_id']),
+                                $data['result'],
+                                $data['notes'] ?? null,
+                            );
+                        } catch (TesterNotClockedInException $exception) {
+                            Notification::make()
+                                ->title('Unable to submit')
+                                ->body($exception->getMessage())
+                                ->danger()
+                                ->send();
+                        }
                     }),
                 EditAction::make(),
             ])

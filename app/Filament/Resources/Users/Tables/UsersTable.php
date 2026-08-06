@@ -5,9 +5,11 @@ namespace App\Filament\Resources\Users\Tables;
 use App\Models\User;
 use App\Services\ClockService;
 use Filament\Actions\Action;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Artisan;
 
 class UsersTable
 {
@@ -39,6 +41,19 @@ class UsersTable
                     ->dateTime()
                     ->placeholder('—')
                     ->sortable(),
+            ])
+            ->headerActions([
+                Action::make('runAssignmentNow')
+                    ->label('Run Assignment Now')
+                    ->icon('heroicon-o-play')
+                    ->action(function (): void {
+                        Artisan::call('testers:auto-assign');
+
+                        Notification::make()
+                            ->title('Auto-assignment run complete')
+                            ->success()
+                            ->send();
+                    }),
             ])
             ->recordActions([
                 Action::make('clockIn')

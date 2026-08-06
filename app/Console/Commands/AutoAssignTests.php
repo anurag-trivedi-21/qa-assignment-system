@@ -25,7 +25,7 @@ class AutoAssignTests extends Command
             ->get();
 
         $eligibleTesters = $eligibleShifts
-            ->filter(fn (TesterShift $shift) => $shift->user && $shift->user->is_tester)
+            ->filter(fn (TesterShift $shift) => $shift->user && $shift->user->is_tester && $shift->user->is_enabled)
             ->map(fn (TesterShift $shift) => $shift->user)
             ->filter(function (User $user) {
                 return ! PendingTest::query()
@@ -58,57 +58,85 @@ class AutoAssignTests extends Command
             return self::SUCCESS;
         }
 
+        // If cooldown would block every possible tester/test pairing, ignore it for this run
+        // rather than leave every tester without work (per the "no eligible alternative" fallback).
+        $enforceCooldown = false;
+
         foreach ($eligibleTesters as $tester) {
-            $test = null;
-
             foreach ($pendingTests as $candidate) {
-                $cooldownBlocked = DB::table('test_results')
-                    ->where('test_subject_id', $candidate->test_subject_id)
-                    ->where('tester_id', $tester->id)
-                    ->where('tested_at', '>=', $cooldownCutoff)
-                    ->exists();
+                if (! $this->isCooldownBlocked($candidate, $tester, $cooldownCutoff)) {
+                    $enforceCooldown = true;
+                    break 2;
+                }
+            }
+        }
 
-                if ($cooldownBlocked) {
+        foreach ($eligibleTesters as $tester) {
+            foreach ($pendingTests as $candidate) {
+                if ($enforceCooldown && $this->isCooldownBlocked($candidate, $tester, $cooldownCutoff)) {
                     continue;
                 }
 
-                $test = $candidate;
-                break;
-            }
+                $assigned = $this->tryAssign($tester, $candidate);
 
-            if (! $test) {
-                continue;
-            }
+                if ($assigned) {
+                    $pendingTests = $pendingTests
+                        ->reject(fn (PendingTest $remaining) => $remaining->getKey() === $candidate->getKey())
+                        ->values();
 
-            $pendingTests = $pendingTests->filter(fn (PendingTest $candidate) => $candidate->getKey() !== $test->getKey())->values();
-
-            DB::transaction(function () use ($tester, $test): void {
-                $lock = DB::select('SELECT GET_LOCK(?, 10) AS lock_result', ["assign:{$tester->id}"]);
-                if (($lock[0]->lock_result ?? 0) !== 1) {
-                    return;
+                    break;
                 }
-
-                $alreadyAssigned = PendingTest::query()
-                    ->where('tester_id', $tester->id)
-                    ->where('is_auto_assigned', true)
-                    ->exists();
-
-                if ($alreadyAssigned) {
-                    return;
-                }
-
-                PendingTest::query()
-                    ->whereKey($test->getKey())
-                    ->update([
-                        'tester_id' => $tester->id,
-                        'claimed_at' => now(),
-                        'is_auto_assigned' => true,
-                    ]);
-
-                DB::select('SELECT RELEASE_LOCK(?)', ["assign:{$tester->id}"]);
-            });
+            }
         }
 
         return self::SUCCESS;
+    }
+
+    private function isCooldownBlocked(PendingTest $test, User $tester, Carbon $cutoff): bool
+    {
+        return DB::table('test_results')
+            ->where('test_subject_id', $test->test_subject_id)
+            ->where('tester_id', $tester->id)
+            ->where('tested_at', '>=', $cutoff)
+            ->exists();
+    }
+
+    /**
+     * Atomically claim a pending test for a tester, re-checking eligibility under a lock so
+     * two concurrent runs of this command can never assign the same test to different testers.
+     */
+    private function tryAssign(User $tester, PendingTest $test): bool
+    {
+        return DB::transaction(function () use ($tester, $test): bool {
+            $stillUnclaimed = PendingTest::query()
+                ->whereKey($test->getKey())
+                ->whereNull('tester_id')
+                ->lockForUpdate()
+                ->exists();
+
+            if (! $stillUnclaimed) {
+                return false;
+            }
+
+            $alreadyAssigned = PendingTest::query()
+                ->where('tester_id', $tester->id)
+                ->lockForUpdate()
+                ->exists();
+
+            if ($alreadyAssigned) {
+                return false;
+            }
+
+            $updated = PendingTest::query()
+                ->whereKey($test->getKey())
+                ->whereNull('tester_id')
+                ->update([
+                    'tester_id' => $tester->id,
+                    'claimed_at' => now(),
+                    'is_auto_assigned' => true,
+                ]);
+
+            return $updated > 0;
+        });
     }
 }

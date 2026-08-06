@@ -131,6 +131,73 @@ it('skips a subject that the tester recently tested within the cooldown window',
         'clocked_out_at' => null,
     ]);
 
+    $cooledDownSubject = TestSubject::factory()->create();
+    $availableSubject = TestSubject::factory()->create();
+
+    $tester->testResults()->create([
+        'test_subject_id' => $cooledDownSubject->id,
+        'tester_id' => $tester->id,
+        'result' => 'passed',
+        'tested_at' => now()->subDays(2),
+    ]);
+
+    $cooledDownTest = PendingTest::factory()->create([
+        'test_subject_id' => $cooledDownSubject->id,
+        'tester_id' => null,
+        'reason' => 'Regression',
+        'impact_count' => 300,
+        'is_auto_assigned' => false,
+    ]);
+
+    $availableTest = PendingTest::factory()->create([
+        'test_subject_id' => $availableSubject->id,
+        'tester_id' => null,
+        'reason' => 'Support',
+        'impact_count' => 100,
+        'is_auto_assigned' => false,
+    ]);
+
+    $this->artisan('testers:auto-assign')->assertSuccessful();
+
+    $cooledDownTest->refresh();
+    $availableTest->refresh();
+
+    expect($cooledDownTest->tester_id)->toBeNull()
+        ->and($availableTest->tester_id)->toBe($tester->id);
+});
+
+it('does not auto-assign work to a disabled tester', function () {
+    $tester = User::factory()->create(['is_tester' => true, 'is_enabled' => false]);
+
+    TesterShift::create([
+        'user_id' => $tester->id,
+        'clocked_in_at' => now()->subMinutes(20),
+        'clocked_out_at' => null,
+    ]);
+
+    $pendingTest = PendingTest::factory()->create([
+        'tester_id' => null,
+        'reason' => 'Regression',
+        'impact_count' => 500,
+        'is_auto_assigned' => false,
+    ]);
+
+    $this->artisan('testers:auto-assign')->assertSuccessful();
+
+    $pendingTest->refresh();
+
+    expect($pendingTest->tester_id)->toBeNull();
+});
+
+it('falls back and allows a cooldown-blocked subject when no eligible alternative exists', function () {
+    $tester = User::factory()->create(['is_tester' => true]);
+
+    TesterShift::create([
+        'user_id' => $tester->id,
+        'clocked_in_at' => now()->subMinutes(20),
+        'clocked_out_at' => null,
+    ]);
+
     $subject = TestSubject::factory()->create();
 
     $tester->testResults()->create([
@@ -140,7 +207,7 @@ it('skips a subject that the tester recently tested within the cooldown window',
         'tested_at' => now()->subDays(2),
     ]);
 
-    $pendingTest = PendingTest::factory()->create([
+    $onlyPendingTest = PendingTest::factory()->create([
         'test_subject_id' => $subject->id,
         'tester_id' => null,
         'reason' => 'Regression',
@@ -150,7 +217,39 @@ it('skips a subject that the tester recently tested within the cooldown window',
 
     $this->artisan('testers:auto-assign')->assertSuccessful();
 
-    $pendingTest->refresh();
+    $onlyPendingTest->refresh();
 
-    expect($pendingTest->tester_id)->toBeNull();
+    expect($onlyPendingTest->tester_id)->toBe($tester->id);
+});
+
+it('does not double-assign when the command runs twice in a row', function () {
+    $tester = User::factory()->create(['is_tester' => true]);
+
+    TesterShift::create([
+        'user_id' => $tester->id,
+        'clocked_in_at' => now()->subMinutes(20),
+        'clocked_out_at' => null,
+    ]);
+
+    PendingTest::factory()->create([
+        'test_subject_id' => TestSubject::factory()->create(['test_value' => 1]),
+        'tester_id' => null,
+        'reason' => 'Regression',
+        'impact_count' => 500,
+        'is_auto_assigned' => false,
+    ]);
+
+    PendingTest::factory()->create([
+        'test_subject_id' => TestSubject::factory()->create(['test_value' => 1]),
+        'tester_id' => null,
+        'reason' => 'Support',
+        'impact_count' => 200,
+        'is_auto_assigned' => false,
+    ]);
+
+    $this->artisan('testers:auto-assign')->assertSuccessful();
+    $this->artisan('testers:auto-assign')->assertSuccessful();
+
+    expect(PendingTest::query()->where('tester_id', $tester->id)->where('is_auto_assigned', true)->count())->toBe(1)
+        ->and(PendingTest::query()->whereNull('tester_id')->count())->toBe(1);
 });

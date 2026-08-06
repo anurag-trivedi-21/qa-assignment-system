@@ -16,17 +16,19 @@ class AutoClockOutInactiveTesters extends Command
 
     public function handle(ClockService $clockService): int
     {
-        $timeoutHours = (int) env('TESTER_INACTIVITY_HOURS', 3);
+        $timeoutHours = (int) config('testing.inactivity_timeout_hours', 3);
         $cutoff = Carbon::now()->subHours($timeoutHours);
 
         $shifts = TesterShift::query()
             ->whereNull('clocked_out_at')
             ->where(function ($query) use ($cutoff): void {
-                $query->where('clocked_in_at', '<=', $cutoff)
-                    ->orWhere(function ($inner) use ($cutoff): void {
-                        $inner->whereNotNull('last_test_submitted_at')
-                            ->where('last_test_submitted_at', '<=', $cutoff);
-                    });
+                $query->where(function ($inner) use ($cutoff): void {
+                    $inner->whereNull('last_test_submitted_at')
+                        ->where('clocked_in_at', '<=', $cutoff);
+                })->orWhere(function ($inner) use ($cutoff): void {
+                    $inner->whereNotNull('last_test_submitted_at')
+                        ->where('last_test_submitted_at', '<=', $cutoff);
+                });
             })
             ->with('user')
             ->get();
