@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\AutoAssignTestsJob;
 use App\Models\PendingTest;
 use App\Models\TesterShift;
 use App\Models\TestSubject;
@@ -37,7 +38,7 @@ it('prioritizes pending tests by impact, test value, and age', function () {
         'is_auto_assigned' => false,
     ]);
 
-    $this->artisan('testers:auto-assign')->assertSuccessful();
+    AutoAssignTestsJob::dispatchSync();
 
     $higherPriorityTest->refresh();
     $lowerPriorityTest->refresh();

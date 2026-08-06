@@ -1,21 +1,20 @@
 <?php
 
-namespace App\Console\Commands;
+namespace App\Jobs;
 
 use App\Models\PendingTest;
 use App\Models\TesterShift;
 use App\Models\User;
-use Illuminate\Console\Command;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
-class AutoAssignTests extends Command
+class AutoAssignTestsJob implements ShouldQueue
 {
-    protected $signature = 'testers:auto-assign';
+    use Queueable;
 
-    protected $description = 'Automatically assign pending tests to eligible testers using the global scheduled approach.';
-
-    public function handle(): int
+    public function handle(): void
     {
         $eligibleShifts = TesterShift::query()
             ->whereNull('clocked_out_at')
@@ -35,7 +34,7 @@ class AutoAssignTests extends Command
             ->values();
 
         if ($eligibleTesters->isEmpty()) {
-            return self::SUCCESS;
+            return;
         }
 
         $cooldownDays = (int) config('testing.repeat_test_cooldown_days', 7);
@@ -55,11 +54,9 @@ class AutoAssignTests extends Command
             ->get();
 
         if ($pendingTests->isEmpty()) {
-            return self::SUCCESS;
+            return;
         }
 
-        // If cooldown would block every possible tester/test pairing, ignore it for this run
-        // rather than leave every tester without work (per the "no eligible alternative" fallback).
         $enforceCooldown = false;
 
         foreach ($eligibleTesters as $tester) {
@@ -88,8 +85,6 @@ class AutoAssignTests extends Command
                 }
             }
         }
-
-        return self::SUCCESS;
     }
 
     private function isCooldownBlocked(PendingTest $test, User $tester, Carbon $cutoff): bool
@@ -101,10 +96,6 @@ class AutoAssignTests extends Command
             ->exists();
     }
 
-    /**
-     * Atomically claim a pending test for a tester, re-checking eligibility under a lock so
-     * two concurrent runs of this command can never assign the same test to different testers.
-     */
     private function tryAssign(User $tester, PendingTest $test): bool
     {
         return DB::transaction(function () use ($tester, $test): bool {

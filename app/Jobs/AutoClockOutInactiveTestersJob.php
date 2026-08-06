@@ -1,20 +1,19 @@
 <?php
 
-namespace App\Console\Commands;
+namespace App\Jobs;
 
 use App\Models\PendingTest;
 use App\Models\TesterShift;
 use App\Services\ClockService;
-use Illuminate\Console\Command;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Carbon;
 
-class AutoClockOutInactiveTesters extends Command
+class AutoClockOutInactiveTestersJob implements ShouldQueue
 {
-    protected $signature = 'testers:auto-clock-out';
+    use Queueable;
 
-    protected $description = 'Auto clock out testers whose inactivity exceeds the configured timeout.';
-
-    public function handle(ClockService $clockService): int
+    public function handle(ClockService $clockService): void
     {
         $timeoutHours = (int) config('testing.inactivity_timeout_hours', 3);
         $cutoff = Carbon::now()->subHours($timeoutHours);
@@ -50,7 +49,5 @@ class AutoClockOutInactiveTesters extends Command
 
             $clockService->clockOut($shift->user);
         }
-
-        return self::SUCCESS;
     }
 }

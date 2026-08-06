@@ -2,7 +2,8 @@
 
 namespace App\Providers;
 
-use App\Console\Commands\AutoAssignTests;
+use App\Jobs\AutoAssignTestsJob;
+use App\Jobs\AutoClockOutInactiveTestersJob;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\ServiceProvider;
 
@@ -22,11 +23,10 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->app->booted(function () {
-            $this->app->make(Schedule::class)->command('testers:auto-assign')->everyFifteenMinutes();
-        });
+            $schedule = $this->app->make(Schedule::class);
 
-        $this->commands([
-            AutoAssignTests::class,
-        ]);
+            $schedule->job(new AutoAssignTestsJob)->everyFifteenMinutes();
+            $schedule->job(new AutoClockOutInactiveTestersJob)->everyFiveMinutes();
+        });
     }
 }

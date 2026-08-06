@@ -25,13 +25,65 @@ services:
             DB_PASSWORD: ''
             REDIS_HOST: redis
             REDIS_PORT: 6379
-        volumes:
-            - laravel-data:/var/www/html
+        # volumes:
+        #     - '.:/var/www/html'
         networks:
             - sail
         depends_on:
-            - redis
-            - mysql
+            redis:
+                condition: service_healthy
+            mysql:
+                condition: service_healthy
+    laravel.queue:
+        image: 'php-takehome/app'
+        command: php artisan queue:work redis --sleep=1 --tries=1 --max-time=3600
+        environment:
+            WWWUSER: '${WWWUSER:-1000}'
+            LARAVEL_SAIL: 1
+            DB_CONNECTION: mysql
+            DB_HOST: mysql
+            DB_PORT: 3306
+            DB_DATABASE: wand
+            DB_USERNAME: root
+            DB_PASSWORD: ''
+            REDIS_HOST: redis
+            REDIS_PORT: 6379
+        # volumes:
+        #     - '.:/var/www/html'
+        networks:
+            - sail
+        depends_on:
+            redis:
+                condition: service_healthy
+            mysql:
+                condition: service_healthy
+            laravel.test:
+                condition: service_started
+    laravel.scheduler:
+        image: 'php-takehome/app'
+        command: php artisan schedule:work
+        environment:
+            WWWUSER: '${WWWUSER:-1000}'
+            LARAVEL_SAIL: 1
+            DB_CONNECTION: mysql
+            DB_HOST: mysql
+            DB_PORT: 3306
+            DB_DATABASE: wand
+            DB_USERNAME: root
+            DB_PASSWORD: ''
+            REDIS_HOST: redis
+            REDIS_PORT: 6379
+        # volumes:
+        #     - '.:/var/www/html'
+        networks:
+            - sail
+        depends_on:
+            redis:
+                condition: service_healthy
+            mysql:
+                condition: service_healthy
+            laravel.test:
+                condition: service_started
     mysql:
         image: 'mysql:8.0'
         ports:
@@ -50,7 +102,8 @@ services:
                 - mysqladmin
                 - ping
                 - '-p'
-            retries: 3
+            retries: 5
+            interval: 5s
             timeout: 5s
     redis:
         image: 'redis:alpine'
@@ -65,7 +118,8 @@ services:
                 - CMD
                 - redis-cli
                 - ping
-            retries: 3
+            retries: 5
+            interval: 5s
             timeout: 5s
 networks:
     sail:
@@ -74,6 +128,4 @@ volumes:
     sail-mysql:
         driver: local
     sail-redis:
-        driver: local
-    laravel-data:
         driver: local

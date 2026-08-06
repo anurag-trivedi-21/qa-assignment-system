@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\AutoClockOutInactiveTestersJob;
 use App\Models\TesterShift;
 use App\Models\User;
 
@@ -13,7 +14,7 @@ it('auto clocks out inactive testers based on the configured inactivity timeout'
         'last_test_submitted_at' => now()->subHours(4),
     ]);
 
-    $this->artisan('testers:auto-clock-out')->assertSuccessful();
+    AutoClockOutInactiveTestersJob::dispatchSync();
 
     $shift->refresh();
 
@@ -31,7 +32,7 @@ it('does not clock out a tester whose most recent submission is within the timeo
         'last_test_submitted_at' => now()->subMinutes(30),
     ]);
 
-    $this->artisan('testers:auto-clock-out')->assertSuccessful();
+    AutoClockOutInactiveTestersJob::dispatchSync();
 
     $shift->refresh();
 

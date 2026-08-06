@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Users\Tables;
 
+use App\Jobs\AutoAssignTestsJob;
 use App\Models\User;
 use App\Services\ClockService;
 use Filament\Actions\Action;
@@ -9,7 +10,6 @@ use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Illuminate\Support\Facades\Artisan;
 
 class UsersTable
 {
@@ -47,7 +47,7 @@ class UsersTable
                     ->label('Run Assignment Now')
                     ->icon('heroicon-o-play')
                     ->action(function (): void {
-                        Artisan::call('testers:auto-assign');
+                        AutoAssignTestsJob::dispatchSync();
 
                         Notification::make()
                             ->title('Auto-assignment run complete')

@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\AutoAssignTestsJob;
 use App\Models\PendingTest;
 use App\Models\TesterShift;
 use App\Models\TestSubject;
@@ -23,7 +24,7 @@ it('assigns a pending test to an eligible tester', function () {
         'is_auto_assigned' => false,
     ]);
 
-    $this->artisan('testers:auto-assign')->assertSuccessful();
+    AutoAssignTestsJob::dispatchSync();
 
     $pendingTest->refresh();
 
@@ -55,7 +56,7 @@ it('prioritizes the tester who has been clocked in the longest', function () {
         'is_auto_assigned' => false,
     ]);
 
-    $this->artisan('testers:auto-assign')->assertSuccessful();
+    AutoAssignTestsJob::dispatchSync();
 
     $pendingTest->refresh();
 
@@ -85,7 +86,7 @@ it('does not auto-assign a second test to a tester who already has one auto-assi
         'is_auto_assigned' => false,
     ]);
 
-    $this->artisan('testers:auto-assign')->assertSuccessful();
+    AutoAssignTestsJob::dispatchSync();
 
     $newPendingTest->refresh();
 
@@ -115,7 +116,7 @@ it('does not overwrite a manual claim when auto-assigning', function () {
         'is_auto_assigned' => false,
     ]);
 
-    $this->artisan('testers:auto-assign')->assertSuccessful();
+    AutoAssignTestsJob::dispatchSync();
 
     $newPendingTest->refresh();
 
@@ -157,7 +158,7 @@ it('skips a subject that the tester recently tested within the cooldown window',
         'is_auto_assigned' => false,
     ]);
 
-    $this->artisan('testers:auto-assign')->assertSuccessful();
+    AutoAssignTestsJob::dispatchSync();
 
     $cooledDownTest->refresh();
     $availableTest->refresh();
@@ -182,7 +183,7 @@ it('does not auto-assign work to a disabled tester', function () {
         'is_auto_assigned' => false,
     ]);
 
-    $this->artisan('testers:auto-assign')->assertSuccessful();
+    AutoAssignTestsJob::dispatchSync();
 
     $pendingTest->refresh();
 
@@ -215,7 +216,7 @@ it('falls back and allows a cooldown-blocked subject when no eligible alternativ
         'is_auto_assigned' => false,
     ]);
 
-    $this->artisan('testers:auto-assign')->assertSuccessful();
+    AutoAssignTestsJob::dispatchSync();
 
     $onlyPendingTest->refresh();
 
@@ -247,8 +248,8 @@ it('does not double-assign when the command runs twice in a row', function () {
         'is_auto_assigned' => false,
     ]);
 
-    $this->artisan('testers:auto-assign')->assertSuccessful();
-    $this->artisan('testers:auto-assign')->assertSuccessful();
+    AutoAssignTestsJob::dispatchSync();
+    AutoAssignTestsJob::dispatchSync();
 
     expect(PendingTest::query()->where('tester_id', $tester->id)->where('is_auto_assigned', true)->count())->toBe(1)
         ->and(PendingTest::query()->whereNull('tester_id')->count())->toBe(1);
