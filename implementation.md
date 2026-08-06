@@ -37,17 +37,24 @@
 - Added feature coverage confirming that a manual claim is not overwritten by the auto-assignment command.
 
 ### Requirement 8 — Return Auto-Assigned Tests on Clock-Out
-- Not implemented yet.
+- The clock-out flow now returns any pending test that was auto-assigned to the tester back to the queue by clearing the assignment and claimed state.
+- Manual claims remain intact, so only system-assigned work is reopened on clock-out.
+- Added a regression test to verify the distinction between auto-assigned and manually claimed rows.
 
 ### Requirement 9 — New Subject Grace Period
-- Not implemented yet.
+- Added a configurable grace period for auto-assigned New Subject tests via the new testing config file.
+- When a tester clocks out, those tests are deferred with a return-to-queue timestamp instead of being immediately returned.
+- The inactivity command now releases any deferred New Subject tests once their grace period has expired.
+- Added regression coverage for the delayed-return behavior.
 
 ### Requirement 10 — Repeat-Testing Cooldown
-- Not implemented yet.
+- Added a repeat-test cooldown guardrail so auto-assignment skips subjects the tester has tested recently within the configured window.
+- The cooldown window is configurable via the testing config file and defaults to 7 days.
+- Added regression coverage to verify that cooled-down subjects are not auto-assigned to the same tester.
 
 ### Requirement 11 — Pest Test Coverage
-- Added an initial feature test for clock-in/clock-out behavior.
-- Full suite coverage for the remaining requirements is pending.
+- Added feature coverage for the clock service, inactivity handling, and auto-assignment behavior.
+- The assignment suite now covers core queue behavior including eligibility, fairness, one-assignment-per-tester, manual-claim protection, and repeat-test cooldown.
 
 ## Files added or updated
 - [database/migrations/2026_08_06_000300_create_tester_shifts_table.php](database/migrations/2026_08_06_000300_create_tester_shifts_table.php)

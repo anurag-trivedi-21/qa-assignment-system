@@ -121,3 +121,36 @@ it('does not overwrite a manual claim when auto-assigning', function () {
 
     expect($newPendingTest->tester_id)->toBeNull();
 });
+
+it('skips a subject that the tester recently tested within the cooldown window', function () {
+    $tester = User::factory()->create(['is_tester' => true]);
+
+    TesterShift::create([
+        'user_id' => $tester->id,
+        'clocked_in_at' => now()->subMinutes(20),
+        'clocked_out_at' => null,
+    ]);
+
+    $subject = TestSubject::factory()->create();
+
+    $tester->testResults()->create([
+        'test_subject_id' => $subject->id,
+        'tester_id' => $tester->id,
+        'result' => 'passed',
+        'tested_at' => now()->subDays(2),
+    ]);
+
+    $pendingTest = PendingTest::factory()->create([
+        'test_subject_id' => $subject->id,
+        'tester_id' => null,
+        'reason' => 'Regression',
+        'impact_count' => 300,
+        'is_auto_assigned' => false,
+    ]);
+
+    $this->artisan('testers:auto-assign')->assertSuccessful();
+
+    $pendingTest->refresh();
+
+    expect($pendingTest->tester_id)->toBeNull();
+});

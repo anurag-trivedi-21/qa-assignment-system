@@ -13,12 +13,16 @@ class PendingTest extends Model
     use HasFactory;
 
     protected $fillable = [
-        'test_subject_id', 'tester_id', 'reason', 'impact_count', 'claimed_at', 'is_auto_assigned',
+        'test_subject_id', 'tester_id', 'reason', 'impact_count', 'claimed_at', 'is_auto_assigned', 'return_to_queue_at',
     ];
 
     protected function casts(): array
     {
-        return ['claimed_at' => 'datetime'];
+        return [
+            'claimed_at' => 'datetime',
+            'return_to_queue_at' => 'datetime',
+            'is_auto_assigned' => 'boolean',
+        ];
     }
 
     public function subject(): BelongsTo

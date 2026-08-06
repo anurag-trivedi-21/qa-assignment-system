@@ -55,4 +55,9 @@ class User extends Authenticatable implements FilamentUser
             ->whereNull('clocked_out_at')
             ->exists();
     }
+
+    public function testResults(): HasMany
+    {
+        return $this->hasMany(TestResult::class, 'tester_id');
+    }
 }

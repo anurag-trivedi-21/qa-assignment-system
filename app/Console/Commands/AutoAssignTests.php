@@ -38,6 +38,9 @@ class AutoAssignTests extends Command
             return self::SUCCESS;
         }
 
+        $cooldownDays = (int) config('testing.repeat_test_cooldown_days', 7);
+        $cooldownCutoff = now()->subDays($cooldownDays);
+
         $pendingTests = PendingTest::query()
             ->whereNull('tester_id')
             ->where(function ($query): void {
@@ -56,11 +59,28 @@ class AutoAssignTests extends Command
         }
 
         foreach ($eligibleTesters as $tester) {
-            $test = $pendingTests->shift();
+            $test = null;
 
-            if (! $test) {
+            foreach ($pendingTests as $candidate) {
+                $cooldownBlocked = DB::table('test_results')
+                    ->where('test_subject_id', $candidate->test_subject_id)
+                    ->where('tester_id', $tester->id)
+                    ->where('tested_at', '>=', $cooldownCutoff)
+                    ->exists();
+
+                if ($cooldownBlocked) {
+                    continue;
+                }
+
+                $test = $candidate;
                 break;
             }
+
+            if (! $test) {
+                continue;
+            }
+
+            $pendingTests = $pendingTests->filter(fn (PendingTest $candidate) => $candidate->getKey() !== $test->getKey())->values();
 
             DB::transaction(function () use ($tester, $test): void {
                 $lock = DB::select('SELECT GET_LOCK(?, 10) AS lock_result', ["assign:{$tester->id}"]);

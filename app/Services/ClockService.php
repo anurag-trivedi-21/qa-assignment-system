@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\PendingTest;
 use App\Models\TesterShift;
 use App\Models\User;
 use Illuminate\Support\Carbon;
@@ -40,6 +41,27 @@ class ClockService
         $activeShift->update([
             'clocked_out_at' => Carbon::now(),
         ]);
+
+        PendingTest::query()
+            ->where('tester_id', $user->id)
+            ->where('is_auto_assigned', true)
+            ->get()
+            ->each(function (PendingTest $pendingTest): void {
+                if (strtolower($pendingTest->reason) === 'new subject') {
+                    $pendingTest->update([
+                        'return_to_queue_at' => now()->addHours((int) config('testing.new_subject_grace_hours', 4)),
+                    ]);
+
+                    return;
+                }
+
+                $pendingTest->update([
+                    'tester_id' => null,
+                    'claimed_at' => null,
+                    'is_auto_assigned' => false,
+                    'return_to_queue_at' => null,
+                ]);
+            });
 
         return $activeShift->fresh();
     }

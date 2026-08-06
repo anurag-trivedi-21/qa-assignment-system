@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\PendingTest;
 use App\Models\TesterShift;
 use App\Services\ClockService;
 use Illuminate\Console\Command;
@@ -29,6 +30,16 @@ class AutoClockOutInactiveTesters extends Command
             })
             ->with('user')
             ->get();
+
+        PendingTest::query()
+            ->whereNotNull('return_to_queue_at')
+            ->where('return_to_queue_at', '<=', now())
+            ->update([
+                'tester_id' => null,
+                'claimed_at' => null,
+                'is_auto_assigned' => false,
+                'return_to_queue_at' => null,
+            ]);
 
         foreach ($shifts as $shift) {
             if (! $shift->user) {
