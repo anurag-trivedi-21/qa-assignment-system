@@ -20,16 +20,21 @@
 - Added a migration to mark pending tests as auto-assigned.
 
 ### Requirement 4 — Priority Ranking for Assignment
-- Not implemented yet.
+- Added priority ordering to the auto-assignment command so pending tests are sorted by impact × test value first, then by impact count, and finally by age.
+- This gives the queue a weighted urgency approach that balances business importance with fairness.
+- Added a dedicated test to verify that higher-priority pending tests are assigned before lower-priority ones.
 
 ### Requirement 5 — Fair Rotation Across Testers
-- Not implemented yet.
+- Updated the auto-assignment flow to order eligible testers by how long they have been clocked in, so older shifts receive assignment priority in a simple round-robin style.
+- Added coverage for this behavior in the auto-assignment feature tests.
 
 ### Requirement 6 — One Auto-Assigned Test Per Tester
-- Not implemented yet.
+- The auto-assignment eligibility check now excludes testers who already have any assigned pending test, preventing a second auto-assignment from being created.
+- Added coverage to verify that a tester with an existing auto-assigned task is skipped.
 
 ### Requirement 7 — Do Not Overwrite a Manual Claim
-- Not implemented yet.
+- The auto-assignment flow now treats any existing assignment as a blocker for auto-assigning another test, so manual claims are preserved.
+- Added feature coverage confirming that a manual claim is not overwritten by the auto-assignment command.
 
 ### Requirement 8 — Return Auto-Assigned Tests on Clock-Out
 - Not implemented yet.

@@ -21,6 +21,7 @@ class AutoAssignTests extends Command
             ->whereNull('clocked_out_at')
             ->where('clocked_in_at', '<=', Carbon::now()->subMinutes(15))
             ->with('user')
+            ->orderBy('clocked_in_at')
             ->get();
 
         $eligibleTesters = $eligibleShifts
@@ -29,7 +30,6 @@ class AutoAssignTests extends Command
             ->filter(function (User $user) {
                 return ! PendingTest::query()
                     ->where('tester_id', $user->id)
-                    ->where('is_auto_assigned', true)
                     ->exists();
             })
             ->values();
@@ -44,9 +44,11 @@ class AutoAssignTests extends Command
                 $query->whereNull('claimed_at')
                     ->orWhere('claimed_at', '<=', now());
             })
-            ->orderByDesc(DB::raw('(impact_count * 100)'))
-            ->orderByDesc('impact_count')
-            ->orderByDesc('created_at')
+            ->join('test_subjects', 'test_subjects.id', '=', 'pending_tests.test_subject_id')
+            ->select('pending_tests.*', 'test_subjects.test_value')
+            ->orderByDesc(DB::raw('pending_tests.impact_count * test_subjects.test_value'))
+            ->orderByDesc('pending_tests.impact_count')
+            ->orderBy('pending_tests.created_at')
             ->get();
 
         if ($pendingTests->isEmpty()) {
