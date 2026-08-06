@@ -40,6 +40,21 @@ class Dashboard extends BaseDashboard
 
                     $this->dispatch('tester-shift-changed');
                 }),
+            Action::make('clockOut')
+                ->label('Clock Out')
+                ->icon('heroicon-o-arrow-left-end-on-rectangle')
+                ->color('danger')
+                ->visible(fn (): bool => $user->isClockedIn())
+                ->action(function () use ($user): void {
+                    app(ClockService::class)->clockOut($user);
+
+                    Notification::make()
+                        ->title('Clocked out')
+                        ->success()
+                        ->send();
+
+                    $this->dispatch('tester-shift-changed');
+                }),
         ];
     }
 }
