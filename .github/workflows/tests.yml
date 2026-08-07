@@ -11,12 +11,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: shivammathur/setup-php@v2
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
         with:
           php-version: '8.5'
+          extensions: mbstring, intl, pdo_sqlite, sqlite3, pdo_mysql, bcmath, exif, pcntl, gd, zip
           coverage: none
+          tools: composer:v2
 
-      - run: cp .env.example .env
-      - run: composer install --no-interaction --prefer-dist --no-progress
-      - run: php artisan key:generate
-      - run: ./vendor/bin/pest
+      - name: Verify PHP environment
+        run: php -v && composer --version
+
+      - name: Prepare application environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Run tests
+        run: ./vendor/bin/pest
