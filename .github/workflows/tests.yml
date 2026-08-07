@@ -23,12 +23,13 @@ jobs:
         run: php -v && composer --version
 
       - name: Prepare application environment
-        run: |
-          cp .env.example .env
-          php artisan key:generate
+        run: cp .env.example .env
 
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Generate app key
+        run: php artisan key:generate
 
       - name: Run tests
         run: ./vendor/bin/pest
